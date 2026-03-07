@@ -1,0 +1,117 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    @apply bg-surface-900 text-gray-100 antialiased;
+  }
+
+  body {
+    @apply min-h-screen bg-surface-900;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-surface-800;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-surface-600 rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-brand-500;
+  }
+}
+
+@layer components {
+  .glass-card {
+    @apply bg-surface-800 border border-white/[0.06] rounded-xl backdrop-blur-sm;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center gap-2 px-4 py-2 rounded-lg
+           bg-gradient-brand text-white font-semibold text-sm
+           shadow-glow-sm hover:shadow-glow transition-all duration-200
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center gap-2 px-4 py-2 rounded-lg
+           bg-surface-700 border border-white/10 text-gray-300
+           font-medium text-sm hover:bg-surface-600 hover:border-brand-400/40
+           transition-all duration-200;
+  }
+
+  .btn-danger {
+    @apply inline-flex items-center gap-2 px-4 py-2 rounded-lg
+           bg-red-500/10 border border-red-500/30 text-red-400
+           font-medium text-sm hover:bg-red-500/20 transition-all duration-200;
+  }
+
+  .input-field {
+    @apply w-full px-3 py-2 rounded-lg bg-surface-700 border border-white/10
+           text-gray-100 placeholder-gray-500 text-sm
+           focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500/40
+           transition-all duration-200;
+  }
+
+  .textarea-field {
+    @apply w-full px-3 py-2 rounded-lg bg-surface-700 border border-white/10
+           text-gray-100 placeholder-gray-500 text-sm resize-none
+           focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500/40
+           transition-all duration-200;
+  }
+
+  .badge {
+    @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium;
+  }
+  .badge-trigger   { @apply badge bg-teal-500/15 text-teal-300 border border-teal-500/25; }
+  .badge-llm       { @apply badge bg-purple-500/15 text-purple-300 border border-purple-500/25; }
+  .badge-action    { @apply badge bg-orange-500/15 text-orange-300 border border-orange-500/25; }
+  .badge-logic     { @apply badge bg-yellow-500/15 text-yellow-300 border border-yellow-500/25; }
+  .badge-success   { @apply badge bg-green-500/15 text-green-300 border border-green-500/25; }
+  .badge-error     { @apply badge bg-red-500/15 text-red-300 border border-red-500/25; }
+  .badge-running   { @apply badge bg-brand-500/15 text-brand-400 border border-brand-500/25; }
+}
+
+/* React Flow overrides */
+.react-flow {
+  @apply bg-surface-900;
+}
+.react-flow__background {
+  color: #222535 !important;
+}
+.react-flow__edge-path {
+  stroke: #4f6ef7 !important;
+  stroke-width: 2 !important;
+}
+.react-flow__edge.selected .react-flow__edge-path {
+  stroke: #a78bfa !important;
+}
+.react-flow__handle {
+  background: #4f6ef7 !important;
+  border: 2px solid #0a0b0f !important;
+  width: 10px !important;
+  height: 10px !important;
+}
+.react-flow__handle:hover {
+  background: #a78bfa !important;
+}
+.react-flow__node.selected > div {
+  border-color: #4f6ef7 !important;
+  box-shadow: 0 0 0 2px rgba(79, 110, 247, 0.35) !important;
+}
+.react-flow__controls button {
+  @apply bg-surface-700 border-surface-600 text-gray-300;
+}
+.react-flow__minimap {
+  @apply bg-surface-800 border border-white/10 rounded-lg;
+}
