@@ -1,10 +1,24 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 from database import engine, Base
 from routers import workflows as workflow_router
 
-# Create all tables on startup
+# Create any missing tables
 Base.metadata.create_all(bind=engine)
+
+# ── Idempotent schema migrations ───────────────────────────────────────────────
+# SQLAlchemy's create_all() only creates NEW tables — it never alters existing
+# ones. These ALTER TABLE statements handle columns added after initial deploy.
+with engine.connect() as _conn:
+    _conn.execute(text(
+        "ALTER TABLE workflows ADD COLUMN IF NOT EXISTS user_id VARCHAR;"
+    ))
+    _conn.execute(text(
+        "CREATE INDEX IF NOT EXISTS ix_workflows_user_id ON workflows (user_id);"
+    ))
+    _conn.commit()
+    print("INFO:     Schema migration complete (user_id column ensured).")
 
 app = FastAPI(
     title="AgentWeave API",

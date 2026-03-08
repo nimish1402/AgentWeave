@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useAuth } from "@clerk/nextjs";
 import { useParams, useRouter } from "next/navigation";
 import ReactFlow, {
     MiniMap,
@@ -108,6 +109,7 @@ function RunLogsPanel({ run }: { run: WorkflowRun | null }) {
 export default function EditorPage() {
     const { id } = useParams<{ id: string }>();
     const router = useRouter();
+    const { isLoaded, isSignedIn } = useAuth();
 
     const [nodes, setNodes, onNodesChange] = useNodesState([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState([]);
@@ -142,8 +144,9 @@ export default function EditorPage() {
         [openConfig]
     );
 
-    // Load workflow
+    // Load workflow — wait for Clerk session to be ready
     useEffect(() => {
+        if (!isLoaded || !isSignedIn) return;
         const load = async () => {
             try {
                 const res = await apiGetWorkflow(id);
@@ -160,7 +163,7 @@ export default function EditorPage() {
         };
         load();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [id]);
+    }, [id, isLoaded, isSignedIn]);
 
     // Keep callback fresh after every nodes update
     useEffect(() => {

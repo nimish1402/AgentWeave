@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useAuth } from "@clerk/nextjs";
 import Sidebar from "@/components/layout/Sidebar";
 import {
     Plus,
@@ -109,6 +110,7 @@ function WorkflowCard({ workflow, onDelete }: { workflow: WorkflowData; onDelete
 
 export default function DashboardPage() {
     const router = useRouter();
+    const { isLoaded, isSignedIn } = useAuth();
     const [workflows, setWorkflows] = useState<WorkflowData[]>([]);
     const [loading, setLoading] = useState(true);
     const [creating, setCreating] = useState(false);
@@ -123,8 +125,10 @@ export default function DashboardPage() {
     };
 
     useEffect(() => {
+        // Wait for Clerk to finish loading the session before making auth'd requests
+        if (!isLoaded || !isSignedIn) return;
         fetchWorkflows();
-    }, []);
+    }, [isLoaded, isSignedIn]);
 
     const handleDelete = async (id: string) => {
         await apiDeleteWorkflow(id);
