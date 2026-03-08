@@ -250,7 +250,7 @@ export default function EditorPage() {
             <div className="flex-1 flex flex-col overflow-hidden">
                 {/* Top bar */}
                 <div className="flex-shrink-0 border-b border-white/[0.06] bg-surface-800 px-4 py-3 flex items-center gap-3">
-                    <button onClick={() => router.push("/")} className="p-1.5 rounded-md text-gray-500 hover:text-gray-300 hover:bg-white/[0.04] transition-all">
+                    <button onClick={() => router.push("/dashboard")} className="p-1.5 rounded-md text-gray-500 hover:text-gray-300 hover:bg-white/[0.04] transition-all">
                         <ArrowLeft className="w-4 h-4" />
                     </button>
                     <ChevronRight className="w-3 h-3 text-gray-600" />

@@ -4,9 +4,15 @@ Graph-traversal based sequential node executor.
 """
 import httpx
 import os
+import smtplib
 import json
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from datetime import datetime
 from typing import Any, Dict, List
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 def _log(logs: list, node_id: str, node_name: str, event: str, data: Any = None):
@@ -25,9 +31,10 @@ def _build_adjacency(edges: List[Dict]) -> Dict[str, List[str]]:
     """Build adjacency list from edge definitions."""
     adjacency: Dict[str, List[str]] = {}
     for edge in edges:
-        src = edge.get("from") or edge.get("from_", "")
-        dst = edge.get("to", "")
-        adjacency.setdefault(src, []).append(dst)
+        src = edge.get("from") or edge.get("from_") or edge.get("source", "")
+        dst = edge.get("to") or edge.get("target", "")
+        if src and dst:
+            adjacency.setdefault(src, []).append(dst)
     return adjacency
 
 
@@ -37,7 +44,6 @@ def _find_trigger(nodes: List[Dict]) -> Dict:
     for node in nodes:
         if node.get("type") in trigger_types:
             return node
-    # Fallback: first node
     return nodes[0] if nodes else None
 
 
@@ -46,22 +52,16 @@ def _find_trigger(nodes: List[Dict]) -> Dict:
 # ---------------------------------------------------------------------------
 
 def _execute_trigger(node: Dict, context: Dict) -> Dict:
-    """Trigger nodes just pass through initial context."""
     return {"triggered": True, "input": context.get("input", {})}
 
 
 def _execute_llm(node: Dict, context: Dict) -> Dict:
-    """Call Groq LLM and return the text response."""
     from groq import Groq
-    from dotenv import load_dotenv
-    load_dotenv()
-
     params = node.get("params", {})
     model = params.get("model", "llama-3.3-70b-versatile")
     prompt_template = params.get("prompt", "Process the following: {{input}}")
     input_key = params.get("input_key", "text")
     input_text = context.get(input_key, str(context))
-
     prompt = prompt_template.replace("{{input}}", str(input_text))
 
     client = Groq(api_key=os.getenv("GROQ_API_KEY", ""))
@@ -76,7 +76,6 @@ def _execute_llm(node: Dict, context: Dict) -> Dict:
 
 
 def _execute_http_request(node: Dict, context: Dict) -> Dict:
-    """Make an HTTP request."""
     params = node.get("params", {})
     url = params.get("url", "")
     method = params.get("method", "GET").upper()
@@ -84,7 +83,7 @@ def _execute_http_request(node: Dict, context: Dict) -> Dict:
     body = params.get("body", None)
 
     if not url:
-        return {"error": "No URL specified", "status_code": None}
+        raise ValueError("HTTP Request node: no URL specified")
 
     with httpx.Client(timeout=15) as client:
         resp = client.request(method, url, headers=headers, json=body)
@@ -97,13 +96,12 @@ def _execute_http_request(node: Dict, context: Dict) -> Dict:
 
 
 def _execute_condition(node: Dict, context: Dict) -> Dict:
-    """Evaluate a simple condition and return the boolean result."""
     params = node.get("params", {})
     field = params.get("field", "")
     operator = params.get("operator", "equals")
     value = params.get("value", "")
-
     actual = context.get(field)
+
     if operator == "equals":
         passed = str(actual) == str(value)
     elif operator == "not_equals":
@@ -121,30 +119,63 @@ def _execute_condition(node: Dict, context: Dict) -> Dict:
 
 
 def _execute_slack(node: Dict, context: Dict) -> Dict:
-    """Simulate sending a Slack message (no real token required for demo)."""
     params = node.get("params", {})
     channel = params.get("channel", "#general")
     template = params.get("message_template", "{{input}}")
     message = template.replace("{{input}}", str(context.get("result", context)))
-
-    # In production you'd call the Slack API here
-    return {"sent": True, "channel": channel, "message": message}
+    # TODO: integrate real Slack webhook
+    return {"sent": True, "channel": channel, "message": message, "note": "Slack simulated — add webhook_url param for real sending"}
 
 
 def _execute_email(node: Dict, context: Dict) -> Dict:
-    """Simulate sending an email."""
+    """
+    Send a real email via SMTP.
+    Required params on the node: to, subject, body_template
+    Required env vars: SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS
+    Falls back to simulation if SMTP is not configured.
+    """
     params = node.get("params", {})
-    to = params.get("to", "")
-    subject = params.get("subject", "Workflow Result")
-    body_template = params.get("body_template", "{{input}}")
+    to = params.get("to", "").strip()
+    subject = params.get("subject", "Workflow Result").strip()
+    body_template = params.get("body_template", params.get("body", "{{input}}"))
     body = body_template.replace("{{input}}", str(context.get("result", context)))
 
-    # In production you'd call SMTP / SendGrid etc.
+    if not to:
+        raise ValueError("Email node: 'to' address is required but not set")
+
+    smtp_host = os.getenv("SMTP_HOST", "")
+    smtp_port = int(os.getenv("SMTP_PORT", "587"))
+    smtp_user = os.getenv("SMTP_USER", "")
+    smtp_pass = os.getenv("SMTP_PASS", "")
+
+    if not smtp_host or not smtp_user:
+        # Simulation mode — SMTP not configured
+        return {
+            "sent": False,
+            "simulated": True,
+            "to": to,
+            "subject": subject,
+            "body": body,
+            "note": "Email simulated — set SMTP_HOST, SMTP_USER, SMTP_PASS in backend/.env to send real emails",
+        }
+
+    # Real SMTP send
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"] = smtp_user
+    msg["To"] = to
+    msg.attach(MIMEText(body, "plain"))
+
+    with smtplib.SMTP(smtp_host, smtp_port) as server:
+        server.ehlo()
+        server.starttls()
+        server.login(smtp_user, smtp_pass)
+        server.sendmail(smtp_user, [to], msg.as_string())
+
     return {"sent": True, "to": to, "subject": subject, "body": body}
 
 
 def _execute_database_write(node: Dict, context: Dict) -> Dict:
-    """Simulate a database write."""
     params = node.get("params", {})
     table = params.get("table", "results")
     data_key = params.get("data_key", "result")
@@ -153,7 +184,6 @@ def _execute_database_write(node: Dict, context: Dict) -> Dict:
 
 
 def _execute_loop(node: Dict, context: Dict) -> Dict:
-    """Return items for the next node to process (simplified)."""
     params = node.get("params", {})
     items_key = params.get("items_key", "items")
     items = context.get(items_key, [])
@@ -191,9 +221,8 @@ def run_workflow(workflow_definition: Dict, initial_input: Dict = None) -> Dict:
     edges_list: List[Dict] = workflow_definition.get("edges", [])
 
     if not nodes_list:
-        return {"status": "failed", "logs": logs, "error": "No nodes found"}
+        return {"status": "failed", "logs": logs, "error": "No nodes found in workflow"}
 
-    # Build lookup
     node_map: Dict[str, Dict] = {n["id"]: n for n in nodes_list}
     adjacency = _build_adjacency(edges_list)
 
@@ -201,7 +230,12 @@ def run_workflow(workflow_definition: Dict, initial_input: Dict = None) -> Dict:
     if not trigger_node:
         return {"status": "failed", "logs": logs, "error": "No trigger node found"}
 
-    # BFS / sequential traversal
+    # Warn about disconnected nodes (no edges → only trigger runs)
+    if not edges_list:
+        _log(logs, "engine", "Execution Engine", "start", {
+            "warning": "No edges found — only the trigger node will execute. Connect your nodes in the editor."
+        })
+
     visited = set()
     queue = [trigger_node["id"]]
     final_output = {}
@@ -216,22 +250,22 @@ def run_workflow(workflow_definition: Dict, initial_input: Dict = None) -> Dict:
         if not node:
             continue
 
-        _log(logs, node_id, node["name"], "start", {"context_keys": list(context.keys())})
+        node_name = node.get("name") or node.get("label") or node_id
+        _log(logs, node_id, node_name, "start", {"context_keys": list(context.keys())})
 
         try:
-            executor = NODE_EXECUTORS.get(node["type"])
+            executor = NODE_EXECUTORS.get(node.get("type", ""))
             if executor:
                 output = executor(node, context)
             else:
-                output = {"skipped": True, "reason": f"No executor for type '{node['type']}'"}
+                output = {"skipped": True, "reason": f"No executor for type '{node.get('type')}'"}
 
-            # Merge output into context for next nodes
             context.update(output)
             final_output = output
+            _log(logs, node_id, node_name, "success", output)
 
-            _log(logs, node_id, node["name"], "success", output)
         except Exception as exc:
-            _log(logs, node_id, node["name"], "error", {"error": str(exc)})
+            _log(logs, node_id, node_name, "error", {"error": str(exc)})
             return {
                 "status": "failed",
                 "logs": logs,
@@ -239,7 +273,6 @@ def run_workflow(workflow_definition: Dict, initial_input: Dict = None) -> Dict:
                 "failed_node": node_id,
             }
 
-        # Queue next nodes
         for next_id in adjacency.get(node_id, []):
             if next_id not in visited:
                 queue.append(next_id)
