@@ -20,16 +20,23 @@ with engine.connect() as _conn:
     _conn.commit()
     print("INFO:     Schema migration complete (user_id column ensured).")
 
+import os
+
 app = FastAPI(
     title="AgentWeave API",
     description="AI-Powered Automation Workflow Platform",
     version="1.0.0",
 )
 
-# CORS – allow Next.js dev server
+# ── CORS ───────────────────────────────────────────────────────────────────────
+# ALLOWED_ORIGINS env var = comma-separated list, e.g.:
+#   https://agentweave.vercel.app,http://localhost:3000
+_raw_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000")
+_origins = [o.strip() for o in _raw_origins.split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
